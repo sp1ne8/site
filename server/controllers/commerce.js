@@ -1,0 +1,16 @@
+import * as catalog from '../services/catalog.js';
+import * as orders from '../services/orders.js';
+import * as payments from '../services/payments.js';
+import { checkPromo } from '../services/promocodes.js';
+const ok = (res,data,status=200) => res.status(status).json({success:true,data});
+export const products = async (req,res) => ok(res,await catalog.listProducts(req.validated.query));
+export const product = async (req,res) => ok(res,await catalog.getProduct(req.validated.params.slug));
+export const plans = async (req,res) => ok(res,await catalog.listPlans(req.validated.query.productId));
+export const subscriptions = async (req,res) => ok(res,await catalog.listSubscriptions(req.user.id));
+export const createOrder = async (req,res) => ok(res,await orders.createOrder(req.user.id,req.validated.body),201);
+export const listOrders = async (req,res) => ok(res,await orders.listOrders(req.user.id,req.validated.query));
+export const order = async (req,res) => ok(res,await orders.getOrder(req.user.id,req.validated.params.id));
+export const cancelOrder = async (req,res) => ok(res,await orders.cancelOrder(req.user.id,req.validated.params.id));
+export const promo = async (req,res) => { await orders.expireOrders(); ok(res,await checkPromo(req.validated.body)); };
+export const payment = async (req,res) => ok(res,await payments.checkPayment(req.user.id,req.validated.params.id));
+export const webhook = async (req,res) => ok(res,await payments.handleWebhook(req.body,req.get('x-payment-signature')));

@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum Role {
+  user
+  admin
+}
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+enum OrderStatus {
+  pending
+  paid
+  cancelled
+  refunded
+}
+enum PaymentStatus {
+  pending
+  succeeded
+  cancelled
+  refunded
+}
+enum PromoType {
+  percent
+  fixed
+}
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  username String @unique @db.VarChar(40)
+  email String @unique @db.VarChar(254)
+  passwordHash String
+  role Role @default(user)
+  balance Decimal @default(0) @db.Decimal(12,2)
+  isBlocked Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  subscriptions Subscription[]
+  orders Order[]
+  sessions Session[]
+  passwordResets PasswordReset[]
+  adminLogs AdminLog[]
+}
+model Product {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(150)
+  slug String @unique @db.VarChar(160)
+  description String
+  shortDescription String @db.VarChar(500)
+  image String?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  plans Plan[]
+  subscriptions Subscription[]
+  orders Order[]
+}
+model Plan {
+  id String @id @default(uuid()) @db.Uuid
+  productId String @db.Uuid
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  name String @db.VarChar(100)
+  durationDays Int
+  price Decimal @db.Decimal(12,2)
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  subscriptions Subscription[]
+  orders Order[]
+  @@index([productId,isActive])
+}
+model Subscription {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  productId String @db.Uuid
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  planId String @db.Uuid
+  plan Plan @relation(fields:[planId],references:[id],onDelete:Restrict)
+  startsAt DateTime
+  expiresAt DateTime
+  status SubscriptionStatus @default(active)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId,productId])
+  @@index([status,expiresAt])
+}
+model Order {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  productId String @db.Uuid
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  planId String @db.Uuid
+  plan Plan @relation(fields:[planId],references:[id],onDelete:Restrict)
+  promoCodeId String? @db.Uuid
+  promoCode PromoCode? @relation(fields:[promoCodeId],references:[id],onDelete:Restrict)
+  originalPrice Decimal @db.Decimal(12,2)
+  discount Decimal @db.Decimal(12,2)
+  finalPrice Decimal @db.Decimal(12,2)
+  durationDays Int
+  currency String @default("RUB") @db.VarChar(3)
+  status OrderStatus @default(pending)
+  idempotencyKey String @unique @db.Uuid
+  paymentId String? @unique @db.Uuid
+  payment Payment? @relation("SelectedPayment",fields:[paymentId],references:[id],onDelete:Restrict)
+  payments Payment[] @relation("OrderPayments")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId,createdAt])
+  @@index([status,expiresAt])
+}
+model PromoCode {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(50)
+  type PromoType
+  value Decimal @db.Decimal(12,2)
+  maxUses Int?
+  usedCount Int @default(0)
+  reservedCount Int @default(0)
+  expiresAt DateTime?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders Order[]
+}
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+  orderId String @unique @db.Uuid
+  order Order @relation("OrderPayments",fields:[orderId],references:[id],onDelete:Restrict)
+  selectedBy Order? @relation("SelectedPayment")
+  provider String
+  providerPaymentId String @unique
+  amount Decimal @db.Decimal(12,2)
+  currency String @default("RUB") @db.VarChar(3)
+  status PaymentStatus @default(pending)
+  checkoutUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model AdminLog {
+  id String @id @default(uuid()) @db.Uuid
+  adminId String @db.Uuid
+  admin User @relation(fields:[adminId],references:[id],onDelete:Restrict)
+  action String
+  entity String
+  entityId String?
+  details Json?
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
+model Session {
+  id String @id @default(uuid()) @db.Uuid
+  tokenHash String @unique
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId])
+  @@index([expiresAt])
+}
+model PasswordReset {
+  id String @id @default(uuid()) @db.Uuid
+  tokenHash String @unique
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+}

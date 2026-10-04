@@ -1,0 +1,15 @@
+{
+  "name": "@subscription-starter/client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --configLoader native",
+    "build": "vite build --configLoader native",
+    "preview": "vite preview --host 127.0.0.1 --configLoader native"
+  },
+  "devDependencies": {
+    "vite": "^6.1.0",
+    "sass": "^1.85.0"
+  }
+}
