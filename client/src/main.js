@@ -12,7 +12,15 @@ const state = { user: null };
 let renderVersion = 0;
 function navLink(path, label) { return `<a data-link href="${path}"${location.pathname === path ? ' aria-current="page"' : ''}>${label}</a>`; }
 function shell() {
-  return `<a class="skip-link" href="#content">Перейти к содержимому</a><header class="site-header"><div class="container header-inner"><a data-link class="brand" href="/">Подписка<span>цифровые продукты</span></a><nav class="main-nav" aria-label="Основная навигация">${navLink('/catalog', 'Каталог')}${navLink('/plans', 'Тарифы')}${navLink('/faq', 'FAQ')}</nav><div class="account-nav">${state.user ? `<a data-link href="/dashboard" data-account-name>${e(state.user.username)}</a><button type="button" class="secondary compact" id="logout">Выйти</button>` : `<a data-link href="/login">Войти</a><a data-link class="button compact" href="/register">Регистрация</a>`}</div></div></header>${state.user ? `<div class="account-bar"><nav class="container tabs" aria-label="Личный кабинет">${navLink('/dashboard', 'Обзор')}${navLink('/subscriptions', 'Мои подписки')}${navLink('/orders', 'История заказов')}${navLink('/profile', 'Профиль')}${state.user.role === 'admin' ? navLink('/admin', 'Админ-панель') : ''}</nav></div>` : ''}<main id="content" class="container" tabindex="-1"><p class="loading" role="status">Загрузка…</p></main><footer class="site-footer"><div class="container"><span>Подписка · цифровые продукты</span><a data-link href="/faq">Помощь и вопросы</a></div></footer>`;
+  return `<a class="skip-link" href="#content">Перейти к содержимому</a>
+    <header class="site-header"><div class="container header-inner">
+      <a data-link class="brand" href="/" aria-label="HYDRA"><img src="/logo-1.png" alt="" width="52" height="38"><span>HYDRA</span></a>
+      <nav class="main-nav" aria-label="Основная навигация">${navLink('/catalog', 'Каталог')}${navLink('/faq', 'FAQ')}</nav>
+      <div class="account-nav">${state.user ? `<a data-link class="account-link" href="/dashboard"><span class="account-avatar" aria-hidden="true">${e(state.user.username.slice(0, 1).toUpperCase())}</span><span class="account-username" data-account-name>${e(state.user.username)}</span></a><button type="button" class="secondary compact" id="logout">Выйти</button>` : `<a data-link class="login-link" href="/login">Войти</a><a data-link class="button compact" href="/register">Регистрация</a>`}</div>
+    </div></header>
+    ${state.user ? `<div class="account-bar"><nav class="container tabs" aria-label="Личный кабинет">${navLink('/dashboard', 'Обзор')}${navLink('/subscriptions', 'Мои подписки')}${navLink('/orders', 'История заказов')}${navLink('/profile', 'Профиль')}${state.user.role === 'admin' ? navLink('/admin', 'Админ-панель') : ''}</nav></div>` : ''}
+    <main id="content" class="container" tabindex="-1"><p class="loading" role="status">Загрузка…</p></main>
+    <footer class="site-footer"><div class="container footer-inner"><div class="footer-identity"><a data-link class="brand footer-brand" href="/" aria-label="HYDRA"><img src="/logo-1.png" alt="" width="52" height="38"><span>HYDRA</span></a><span class="footer-description">Подписка · цифровые продукты</span></div><a data-link class="footer-support" href="/faq">Помощь и вопросы<span aria-hidden="true">↗</span></a></div></footer>`;
 }
 const notFound = () => ({ title: 'Страница не найдена', html: `${heading('404 — Страница не найдена', 'Возможно, адрес изменился или ссылка больше не действует.')}<a data-link class="button" href="/">На главную</a>` });
 async function resolveView(path) {
@@ -41,6 +49,7 @@ async function render() {
   }
   app.innerHTML = shell();
   const main = app.querySelector('main');
+  main.dataset.page = path === '/' ? 'home' : /^\/(catalog|products|plans)(\/|$)/.test(path) ? 'catalog' : path === '/faq' ? 'faq' : /^\/(login|register|forgot-password|reset-password)$/.test(path) ? 'auth' : /^\/admin(\/|$)/.test(path) ? 'admin' : 'account';
   app.querySelector('#logout')?.addEventListener('click', async (event) => {
     event.currentTarget.disabled = true;
     try { await api.logout(); state.user = null; navigate('/login', { replace: true }); }
