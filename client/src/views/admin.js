@@ -1,8 +1,10 @@
 import * as api from '../api.js';
 import { bindForm, date, empty, escapeHtml as e, field, formStatus, heading, localDateTime, money, pagination, report, status, table } from '../ui.js';
 import { navigate } from '../router.js';
+import { legalAdminView } from './legal-admin.js';
+import { mediaImage } from '../privacy.js';
 
-const sections = { dashboard: 'Обзор', users: 'Пользователи', products: 'Продукты и тарифы', subscriptions: 'Подписки', orders: 'Заказы', promocodes: 'Промокоды', payments: 'Платежи', logs: 'Журнал действий' };
+const sections = { dashboard: 'Обзор', users: 'Пользователи', products: 'Продукты и тарифы', subscriptions: 'Подписки', orders: 'Заказы', promocodes: 'Промокоды', payments: 'Платежи', logs: 'Журнал действий', legal: 'Legal / Privacy' };
 const editable = ['products', 'plans', 'promocodes', 'subscriptions'];
 const asText = (value) => e(value ?? '—');
 const asId = (value) => `<code>${e(value)}</code>`;
@@ -77,7 +79,8 @@ const productBundleFields = (product = {}) => {
 };
 const adminProductCard = (product) => {
   const plans = product.plans || [];
-  const visual = product.image ? `<img src="${e(product.image)}" alt="">` : `<span aria-hidden="true">${e(product.name.slice(0, 1).toUpperCase())}</span>`;
+  const fallback = `<span aria-hidden="true">${e(product.name.slice(0, 1).toUpperCase())}</span>`;
+  const visual = product.image ? mediaImage(product.image, fallback) : fallback;
   return `<article class="panel admin-product-card"><header class="admin-product-card__header"><div class="admin-product-card__identity"><div class="admin-product-card__visual">${visual}</div><div class="admin-product-card__copy"><h3>${e(product.name)}</h3><p>${e(product.shortDescription)}</p><div class="admin-product-card__meta"><code>${e(product.slug)}</code>${availability(product.isActive)}</div></div></div><div class="actions admin-product-card__actions">${managerButton('edit-product', product.id, 'Настроить', 'compact')}${managerButton('add-plan', product.id, 'Добавить тариф')}${product.isActive ? managerButton('deactivate-product', product.id, 'Отключить') : ''}</div></header><div class="admin-plan-list"><div class="admin-plan-list__heading"><strong>Тарифы</strong><span>${plans.length}</span></div><div class="admin-plan-list__items">${plans.length ? plans.map((plan) => `<div class="admin-plan-row"><div><strong>${e(planNameFromDays(plan.durationDays))}</strong>${availability(plan.isActive)}</div><span class="admin-plan-price">${money(plan.price)}</span></div>`).join('') : '<p class="empty">У продукта пока нет тарифов.</p>'}</div></div></article>`;
 };
 function productManagerView(prefix, result) {
@@ -182,6 +185,7 @@ export async function adminView(section = 'dashboard') {
   if (section === 'plans') section = 'products';
   if (!sections[section]) throw new api.ApiError('Раздел не найден.', 404);
   const prefix = `<div class="admin-page__heading">${heading('Админ-панель', 'Управление продуктами, пользователями и подписками.')}</div>${nav(section)}`;
+  if (section === 'legal') return legalAdminView(prefix);
   if (section === 'dashboard') {
     const data = await api.getAdminDashboard();
     const stats = [['Пользователи', data.users], ['Активные подписки', data.activeSubscriptions], ['Заказы', data.orders], ['Оплаченные заказы', data.paidOrders], ['Сумма оплаченных заказов', money(data.totalRevenue)]];

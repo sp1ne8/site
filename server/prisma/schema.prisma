@@ -40,6 +40,12 @@ model User {
   isBlocked Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  jurisdiction String? @db.VarChar(12)
+  deletedAt DateTime?
+  privacyRestricted Boolean @default(false)
+  consentEvents ConsentEvent[]
+  dataRequests DataRequest[]
+  retentionHolds RetentionHold[]
   subscriptions Subscription[]
   orders Order[]
   sessions Session[]
@@ -107,6 +113,7 @@ model Order {
   currency String @default("RUB") @db.VarChar(3)
   status OrderStatus @default(pending)
   idempotencyKey String @unique @db.Uuid
+  legalAcceptance Json?
   paymentId String? @unique @db.Uuid
   payment Payment? @relation("SelectedPayment",fields:[paymentId],references:[id],onDelete:Restrict)
   payments Payment[] @relation("OrderPayments")
@@ -174,4 +181,74 @@ model PasswordReset {
   usedAt DateTime?
   createdAt DateTime @default(now())
   @@index([userId])
+}
+
+model JurisdictionPolicy {
+  code String @id @db.VarChar(12)
+  enabled Boolean @default(false)
+  revision Int @default(1)
+  settings Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model LegalDocument {
+  id String @id @default(uuid()) @db.Uuid
+  kind String @db.VarChar(40)
+  jurisdiction String @db.VarChar(12)
+  title String @db.VarChar(200)
+  version String @db.VarChar(80)
+  body String
+  status String @default("draft") @db.VarChar(12)
+  publishedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  consentEvents ConsentEvent[]
+  @@unique([kind,jurisdiction,version])
+  @@index([jurisdiction,kind,status])
+}
+model ConsentEvent {
+  id String @id @default(uuid()) @db.Uuid
+  userId String? @db.Uuid
+  user User? @relation(fields:[userId],references:[id],onDelete:Restrict)
+  anonymousHash String? @db.VarChar(64)
+  type String @db.VarChar(20)
+  status String @db.VarChar(20)
+  basis String @db.VarChar(30)
+  jurisdiction String @db.VarChar(12)
+  policyRevision Int
+  documentId String @db.Uuid
+  document LegalDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
+  documentVersion String @db.VarChar(80)
+  receiptId String @unique @default(uuid()) @db.Uuid
+  confirmationMethod String @db.VarChar(40)
+  createdAt DateTime @default(now())
+  @@index([userId,type,createdAt])
+  @@index([anonymousHash,type,createdAt])
+}
+model DataRequest {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  jurisdiction String @db.VarChar(12)
+  type String @db.VarChar(20)
+  message String
+  status String @default("pending") @db.VarChar(20)
+  response String?
+  dueAt DateTime?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId,createdAt])
+  @@index([status,dueAt])
+}
+model RetentionHold {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  requestId String @db.Uuid
+  categories Json
+  basis String
+  reviewAt DateTime
+  createdAt DateTime @default(now())
+  @@index([reviewAt])
 }

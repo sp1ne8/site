@@ -6,6 +6,7 @@ import { AppError } from '../utils/errors.js';
 import { publicUserSelect } from '../utils/users.js';
 import { serializable } from '../utils/transaction.js';
 import { sendPasswordResetEmail } from './mail.service.js';
+import { initializeLegal, registrationDecisions } from './legal.js';
 
 const PASSWORD_COST = 12;
 // A valid fixed hash keeps unknown-email logins on bcrypt's expensive path too.
@@ -19,14 +20,17 @@ async function createSession(tx, userId) {
   return { token, expiresAt };
 }
 
-export async function register({ username, email, password }) {
+export async function register(input) {
+  await initializeLegal();
+  const { username, email, password } = input;
   const passwordHash = await bcrypt.hash(password, PASSWORD_COST);
   try {
     return await serializable(async (tx) => {
       const user = await tx.user.create({
-        data: { username, email, passwordHash, role: 'user' },
+        data: { username, email, passwordHash, role: 'user', jurisdiction: input.jurisdiction },
         select: publicUserSelect,
       });
+      await registrationDecisions(tx, user.id, input);
       return { user, session: await createSession(tx, user.id) };
     });
   } catch (error) {
@@ -44,7 +48,7 @@ export async function login({ email, password }) {
     if (!current || current.passwordHash !== credentials.passwordHash) {
       throw new AppError(401, 'Неверный email или пароль.');
     }
-    if (current.isBlocked) throw new AppError(403, 'Аккаунт заблокирован.');
+    if (current.isBlocked || current.deletedAt) throw new AppError(403, 'Аккаунт заблокирован или закрыт.');
     await tx.session.deleteMany({ where: { userId: current.id, expiresAt: { lte: new Date() } } });
     const user = await tx.user.findUnique({ where: { id: current.id }, select: publicUserSelect });
     return { user, session: await createSession(tx, current.id) };
@@ -56,8 +60,8 @@ export async function logout(sessionId) {
 }
 
 export async function forgotPassword({ email }) {
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, isBlocked: true } });
-  if (!user || user.isBlocked) return;
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, isBlocked: true, deletedAt: true } });
+  if (!user || user.isBlocked || user.deletedAt) return;
   const token = randomBytes(32).toString('hex');
   const tokenHash = hashToken(token);
   const created = await serializable(async (tx) => {
@@ -86,7 +90,7 @@ export async function resetPassword({ token, password }) {
   const passwordHash = await bcrypt.hash(password, PASSWORD_COST);
   await serializable(async (tx) => {
     const reset = await tx.passwordReset.findUnique({ where: { tokenHash }, include: { user: true } });
-    if (!reset || reset.usedAt || reset.expiresAt <= new Date() || reset.user.isBlocked) {
+    if (!reset || reset.usedAt || reset.expiresAt <= new Date() || reset.user.isBlocked || reset.user.deletedAt) {
       throw new AppError(400, 'Ссылка недействительна или срок её действия истёк.');
     }
     // Conditional claim plus the transaction makes parallel token replays single-use.

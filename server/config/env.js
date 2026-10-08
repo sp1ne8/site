@@ -5,6 +5,7 @@ dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)), quiet:
 const schema = z.object({
   NODE_ENV: z.enum(['development','test','production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  SERVER_HOST: z.string().default('127.0.0.1'),
   DATABASE_URL: z.string().startsWith('postgresql://'),
   CLIENT_URL: z.string().url().default('http://localhost:5173'),
   SERVER_URL: z.string().url().default('http://localhost:3000'),
@@ -16,12 +17,17 @@ const schema = z.object({
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
   SMTP_HOST: z.string().optional(), SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().optional(), SMTP_PASS: z.string().optional(), SMTP_FROM: z.string().default('no-reply@example.test'),
+  BACKUP_ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/).optional(),
+  PG_DUMP_PATH: z.string().optional(),
   SEED_ADMIN_EMAIL: z.string().email().default('admin@example.test'),
   SEED_ADMIN_PASSWORD: z.string().min(12).optional()
 });
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) throw new Error(`Invalid environment: ${parsed.error.issues.map(i => i.path.join('.') + ': ' + i.message).join('; ')}`);
 export const env = { ...parsed.data, COOKIE_SECURE: parsed.data.NODE_ENV === 'production' };
+if (env.NODE_ENV === 'production' && [env.CLIENT_URL, env.SERVER_URL].some(url => new URL(url).protocol !== 'https:')) {
+  throw new Error('Production requires HTTPS CLIENT_URL and SERVER_URL and a configured TLS reverse proxy.');
+}
 // This starter deliberately fails closed until a real provider adapter is installed.
 if (env.NODE_ENV === 'production' && env.PAYMENT_PROVIDER === 'sandbox') {
   throw new Error('Sandbox payments are development-only. Implement and configure a real payment provider before production.');

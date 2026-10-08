@@ -1,0 +1,5 @@
+# Replace HYDRA_DOMAIN and configure HTTPS CLIENT_URL/SERVER_URL.
+# Backend binds to loopback; TRUST_PROXY must match this one trusted proxy.
+{$HYDRA_DOMAIN} {
+    reverse_proxy 127.0.0.1:3000
+}

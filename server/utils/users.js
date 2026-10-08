@@ -8,4 +8,7 @@ export const publicUserSelect = Object.freeze({
   isBlocked: true,
   createdAt: true,
   updatedAt: true,
+  jurisdiction: true,
+  deletedAt: true,
+  privacyRestricted: true,
 });

@@ -1,0 +1,15 @@
+ALTER TABLE "User" ADD COLUMN "jurisdiction" VARCHAR(12), ADD COLUMN "deletedAt" TIMESTAMP(3), ADD COLUMN "privacyRestricted" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Order" ADD COLUMN "legalAcceptance" JSONB;
+CREATE TABLE "JurisdictionPolicy" ("code" VARCHAR(12) PRIMARY KEY, "enabled" BOOLEAN NOT NULL DEFAULT false, "revision" INTEGER NOT NULL DEFAULT 1, "settings" JSONB NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE TABLE "LegalDocument" ("id" UUID PRIMARY KEY, "kind" VARCHAR(40) NOT NULL, "jurisdiction" VARCHAR(12) NOT NULL, "title" VARCHAR(200) NOT NULL, "version" VARCHAR(80) NOT NULL, "body" TEXT NOT NULL, "status" VARCHAR(12) NOT NULL DEFAULT 'draft', "publishedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE UNIQUE INDEX "LegalDocument_kind_jurisdiction_version_key" ON "LegalDocument"("kind","jurisdiction","version");
+CREATE INDEX "LegalDocument_jurisdiction_kind_status_idx" ON "LegalDocument"("jurisdiction","kind","status");
+CREATE TABLE "ConsentEvent" ("id" UUID PRIMARY KEY, "userId" UUID REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE, "anonymousHash" VARCHAR(64), "type" VARCHAR(20) NOT NULL, "status" VARCHAR(20) NOT NULL, "basis" VARCHAR(30) NOT NULL, "jurisdiction" VARCHAR(12) NOT NULL, "policyRevision" INTEGER NOT NULL, "documentId" UUID NOT NULL REFERENCES "LegalDocument"("id") ON DELETE RESTRICT ON UPDATE CASCADE, "documentVersion" VARCHAR(80) NOT NULL, "receiptId" UUID NOT NULL, "confirmationMethod" VARCHAR(40) NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "ConsentEvent_subject_check" CHECK (("userId" IS NULL) <> ("anonymousHash" IS NULL)));
+CREATE UNIQUE INDEX "ConsentEvent_receiptId_key" ON "ConsentEvent"("receiptId");
+CREATE INDEX "ConsentEvent_userId_type_createdAt_idx" ON "ConsentEvent"("userId","type","createdAt");
+CREATE INDEX "ConsentEvent_anonymousHash_type_createdAt_idx" ON "ConsentEvent"("anonymousHash","type","createdAt");
+CREATE TABLE "DataRequest" ("id" UUID PRIMARY KEY, "userId" UUID NOT NULL REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE, "jurisdiction" VARCHAR(12) NOT NULL, "type" VARCHAR(20) NOT NULL, "message" TEXT NOT NULL, "status" VARCHAR(20) NOT NULL DEFAULT 'pending', "response" TEXT, "dueAt" TIMESTAMP(3), "resolvedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE INDEX "DataRequest_userId_createdAt_idx" ON "DataRequest"("userId","createdAt");
+CREATE INDEX "DataRequest_status_dueAt_idx" ON "DataRequest"("status","dueAt");
+CREATE TABLE "RetentionHold" ("id" UUID PRIMARY KEY, "userId" UUID NOT NULL REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE, "requestId" UUID NOT NULL, "categories" JSONB NOT NULL, "basis" TEXT NOT NULL, "reviewAt" TIMESTAMP(3) NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "RetentionHold_reviewAt_idx" ON "RetentionHold"("reviewAt");

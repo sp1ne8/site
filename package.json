@@ -18,9 +18,11 @@
     "db:migrate": "npm run db:migrate -w server",
     "db:seed": "npm run db:seed -w server",
     "test": "npm run test -w server",
-    "test:integration": "npm run test:integration -w server",
+    "test:integration": "node server/tests/run-integration.js",
     "sandbox:pay": "npm run sandbox:pay -w server --",
-    "orders:expire": "npm run orders:expire -w server"
+    "orders:expire": "npm run orders:expire -w server",
+    "privacy:retention": "node server/scripts/privacy-retention.js",
+    "db:backup": "node server/scripts/backup-db.js"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

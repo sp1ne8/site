@@ -1,6 +1,10 @@
 // Основные цвета, шрифт и общие элементы — в _foundation.scss.
-// Стили страниц: _storefront.scss, _workspace.scss и _admin.scss.
+// Хедер и меню — в _navigation.scss; страницы — в _storefront.scss,
+// _workspace.scss и _admin.scss.
 @use 'foundation';
+@use 'navigation';
 @use 'storefront';
 @use 'workspace';
 @use 'admin';
+@use 'motion';
+@use 'legal';

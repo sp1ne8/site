@@ -4,6 +4,8 @@ import { AppError } from '../utils/errors.js';
 import { calculatePrice } from '../utils/money.js';
 import { validPromo } from './promocodes.js';
 import { paymentProvider } from './payment-provider.js';
+import { acceptOffer } from './privacy.js';
+import { initializeLegal } from './legal.js';
 export const orderInclude = {product:true,plan:true,payment:true};
 async function releaseReservation(tx, order) {
   if (order.promoCodeId) await tx.promoCode.update({where:{id:order.promoCodeId},data:{reservedCount:{decrement:1}}});
@@ -24,6 +26,7 @@ export async function expireOrders() {
   return expired.length;
 }
 export async function createOrder(userId,input) {
+  await initializeLegal();
   await expireOrders();
   return serializable(async tx => {
     const existing = await tx.order.findUnique({where:{idempotencyKey:input.idempotencyKey},include:{...orderInclude,promoCode:true}});
@@ -33,12 +36,13 @@ export async function createOrder(userId,input) {
     }
     const user = await tx.user.findUnique({where:{id:userId}});
     if (!user || user.isBlocked) throw new AppError(403,'Доступ запрещён');
+    const legalAcceptance = await acceptOffer(tx, user, input);
     if (await tx.order.count({where:{userId,status:'pending'}}) >= 10) throw new AppError(429,'Слишком много неоплаченных заказов. Отмените предыдущие');
     const plan = await tx.plan.findFirst({where:{id:input.planId,productId:input.productId,isActive:true,product:{isActive:true}}});
     if (!plan) throw new AppError(404,'Продукт или тариф недоступен');
     const promo = await validPromo(tx,input.promoCode);
     if (promo) await tx.promoCode.update({where:{id:promo.id},data:{reservedCount:{increment:1}}});
-    const order = await tx.order.create({data:{userId,productId:plan.productId,planId:plan.id,promoCodeId:promo?.id,...calculatePrice(plan.price,promo),durationDays:plan.durationDays,idempotencyKey:input.idempotencyKey,expiresAt:new Date(Date.now()+30*60*1000)}});
+    const order = await tx.order.create({data:{userId,productId:plan.productId,planId:plan.id,promoCodeId:promo?.id,...calculatePrice(plan.price,promo),durationDays:plan.durationDays,idempotencyKey:input.idempotencyKey,legalAcceptance,expiresAt:new Date(Date.now()+30*60*1000)}});
     // Sandbox createPayment has no network side effects. For a remote adapter,
     // move creation to an outbox worker and use order.id as the provider key.
     const created = await paymentProvider.createPayment({orderId:order.id,amount:order.finalPrice,currency:order.currency});

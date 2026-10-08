@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler as a } from '../utils/async.js';
 import * as c from '../controllers/commerce.js';
+import { orderLegalSchema } from './legal.routes.js';
 const router = Router();
 const id = z.string().uuid();
 const params = z.object({id}).strict();
@@ -17,7 +18,7 @@ router.get('/plans',validate({query:z.object({productId:id.optional()}).strict()
 router.get('/subscriptions',requireAuth,validate(),a(c.subscriptions));
 router.get('/orders',requireAuth,validate({query:paging}),a(c.listOrders));
 router.get('/orders/:id',requireAuth,validate({params}),a(c.order));
-router.post('/orders',requireAuth,checkoutLimit,validate({body:z.object({productId:id,planId:id,promoCode:code.optional(),idempotencyKey:id}).strict()}),a(c.createOrder));
+router.post('/orders',requireAuth,checkoutLimit,validate({body:z.object({productId:id,planId:id,promoCode:code.optional(),idempotencyKey:id,...orderLegalSchema}).strict()}),a(c.createOrder));
 router.post('/orders/:id/cancel',requireAuth,validate({params}),a(c.cancelOrder));
 router.post('/promocodes/check',requireAuth,checkoutLimit,validate({body:z.object({planId:id,code}).strict()}),a(c.promo));
 router.get('/payments/:id',requireAuth,validate({params}),a(c.payment));

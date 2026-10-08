@@ -85,7 +85,6 @@ main:focus { outline: none; }
 .account-link { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .account-avatar { display: grid; place-items: center; flex: 0 0 auto; width: 32px; height: 32px; border-radius: 10px; background: rgba(138, 255, 53, .1); color: var(--color-accent); font-size: .8rem; }
 .account-username { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
-.account-bar { border-bottom: 1px solid var(--color-border); background: rgba(17, 21, 16, .6); }
 .tabs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-block: 13px; }
 .tabs a { padding: 10px 16px; border: 1px solid transparent; border-radius: 9px; color: var(--color-muted); font-size: .82rem; font-weight: 650; text-decoration: none; white-space: nowrap; transition: background .2s ease, border-color .2s ease, color .2s ease; }
 .tabs a:hover { color: var(--color-text); background: rgba(255, 255, 255, .03); }

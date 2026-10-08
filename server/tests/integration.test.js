@@ -22,6 +22,11 @@ const { app } = await import('../app.js');
 const { prisma } = await import('../config/db.js');
 const { env } = await import('../config/env.js');
 const { signSandboxEvent } = await import('../services/payment-provider.js');
+const { publicBundle } = await import('../services/legal.js');
+const legal = await publicBundle('RU');
+const documentId = kind => legal.documents.find(item => item.kind === kind).id;
+const registrationProof = { jurisdiction: 'RU', policyAcknowledged: true, termsAccepted: true, policyDocumentId: documentId('personal-data-policy'), termsDocumentId: documentId('terms') };
+const orderProof = { offerAccepted: true, refundAcknowledged: true, offerDocumentId: documentId('offer'), refundDocumentId: documentId('refund-policy') };
 
 const DAY = 86_400_000;
 const prefix = `it_${randomUUID().slice(0, 8)}`;
@@ -33,6 +38,7 @@ const mailFiles = new Set();
 const outbox = fileURLToPath(new URL('../storage/mail-outbox/', import.meta.url));
 
 function api(method, path, body, cookie) {
+  if (path === '/api/auth/register' && body) body = { ...registrationProof, ...body };
   const call = request(app)[method](path)
     .set('Origin', new URL(env.CLIENT_URL).origin)
     .set('X-Requested-With', 'XMLHttpRequest');
@@ -66,7 +72,7 @@ function cookieFrom(response) {
 async function fixtureUser(suffix, role = 'user') {
   const user = await prisma.user.create({ data: {
     username: `${prefix}_${suffix}`, email: `${prefix}_${suffix}@example.test`,
-    passwordHash: await bcrypt.hash(password, 4), role,
+    passwordHash: await bcrypt.hash(password, 4), role, jurisdiction: 'RU',
   } });
   userIds.add(user.id);
   return user;
@@ -92,7 +98,7 @@ async function fixturePromo(suffix, options = {}) {
 }
 
 const orderInput = (product, extra = {}) => ({
-  productId: product.id, planId: product.plan.id, idempotencyKey: randomUUID(), ...extra,
+  productId: product.id, planId: product.plan.id, idempotencyKey: randomUUID(), ...orderProof, ...extra,
 });
 
 async function createOrder(cookie, product, extra = {}) {
@@ -140,6 +146,9 @@ async function cleanup() {
       await prisma.subscription.deleteMany({ where: { userId: { in: ids } } });
       await prisma.session.deleteMany({ where: { userId: { in: ids } } });
       await prisma.passwordReset.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.retentionHold.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.dataRequest.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.consentEvent.deleteMany({ where: { userId: { in: ids } } });
       await prisma.user.deleteMany({ where: { id: { in: ids } } });
     }
     await prisma.plan.deleteMany({ where: { productId: { in: [...productIds] } } });

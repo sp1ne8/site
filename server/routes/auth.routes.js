@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/async.js';
 import * as controller from '../controllers/auth.controller.js';
+import { registrationLegalSchema } from './legal.routes.js';
 import { usernameSchema, emailSchema, passwordSchema, currentPasswordSchema, emptySchema, withMatchingPasswords } from '../utils/auth.schemas.js';
 
 const router = Router();
@@ -21,6 +22,7 @@ const validated = (body) => validate({ body, query: emptySchema, params: emptySc
 
 router.post('/register', credentialsLimit, validated(withMatchingPasswords(z.object({
   username: usernameSchema, email: emailSchema, password: passwordSchema, confirmPassword: z.string().max(72),
+  ...registrationLegalSchema,
 }).strict())), asyncHandler(controller.register));
 router.post('/login', credentialsLimit, validated(z.object({ email: emailSchema, password: currentPasswordSchema }).strict()), asyncHandler(controller.login));
 router.post('/logout', validated(emptySchema), requireAuth, asyncHandler(controller.logout));

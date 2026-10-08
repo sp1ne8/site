@@ -23,7 +23,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     throw new AppError(401, 'Сессия истекла. Войдите снова.');
   }
   // Resolve role and blocked status from the database on every request.
-  if (session.user.isBlocked) {
+  if (session.user.isBlocked || session.user.deletedAt) {
     await prisma.session.deleteMany({ where: { userId: session.user.id } });
     res.clearCookie(env.COOKIE_NAME, {
       httpOnly: true, secure: env.COOKIE_SECURE, sameSite: 'lax', path: '/',

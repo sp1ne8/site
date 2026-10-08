@@ -1,6 +1,7 @@
 import * as api from '../api.js';
 import { bindForm, date, empty, escapeHtml as e, field, formStatus, heading, money, notice, pagination, report, safeHttpsUrl, status, table } from '../ui.js';
 import { navigate } from '../router.js';
+import { documentLink, legalNotice } from '../privacy.js';
 
 const orderRows = (items) => items.map((order) => [
   `<a data-link href="/orders/${encodeURIComponent(order.id)}"><code>${e(order.id.slice(0, 8))}</code></a>`,
@@ -38,12 +39,13 @@ export async function checkoutView(state) {
   const params = new URLSearchParams(location.search);
   if (!params.get('product') || !params.get('plan')) return { title: 'Оформление заказа', html: `<div class="workspace-page">${heading('Выберите тариф')}<div class="panel workspace-panel">${notice('Для оформления заказа сначала выберите продукт и тариф.')}<a data-link class="button" href="/catalog">Открыть каталог</a></div></div>` };
   const product = await api.getProduct(params.get('product'));
+  const legal = await api.getLegalConfig(state.user.jurisdiction || 'RU');
   const plan = product.plans.find((item) => item.id === params.get('plan'));
   if (!plan) throw new api.ApiError('Выбранный тариф больше недоступен. Выберите другой тариф.', 404);
   const attempts = new Map();
   return {
     title: 'Оформление заказа',
-    html: `<div class="workspace-page">${heading('Оформление заказа', 'Проверьте выбранный продукт и срок доступа.')}<div class="split workspace-split checkout-layout"><section class="panel workspace-panel checkout-summary"><p class="eyebrow">${e(product.name)}</p><h2>${e(plan.name)}</h2><p class="checkout-summary__duration">${e(plan.durationDays)} дней доступа</p><dl class="totals"><div><dt>Стоимость</dt><dd>${money(plan.price)}</dd></div><div><dt>Скидка</dt><dd id="discount">${money(0)}</dd></div><div class="total"><dt>Итого</dt><dd id="total">${money(plan.price)}</dd></div></dl><p class="muted">Если у вас уже есть активная подписка, оплаченный срок добавится к ней.</p><a data-link href="/products/${encodeURIComponent(product.slug)}">Изменить тариф</a></section><section class="panel workspace-panel checkout-payment"><div class="workspace-panel__heading"><h2>Промокод и оплата</h2></div><form id="checkout-form" class="stack">${field('promoCode', 'Промокод', { required: false, maxLength: 50, autocomplete: 'off' })}<button type="button" id="check-promo" class="secondary">Проверить промокод</button><div id="promo-status" role="status" aria-live="polite"></div><p class="checkout-payment__note">Подписка активируется после подтверждения оплаты платёжной системой.</p>${formStatus()}<button type="submit">Создать заказ</button></form></section></div></div>`,
+    html: `<div class="workspace-page">${heading('Оформление заказа', 'Проверьте выбранный продукт и срок доступа.')}<div class="split workspace-split checkout-layout"><section class="panel workspace-panel checkout-summary"><p class="eyebrow">${e(product.name)}</p><h2>${e(plan.name)}</h2><p class="checkout-summary__duration">${e(plan.durationDays)} дней доступа</p><dl class="totals"><div><dt>Стоимость</dt><dd>${money(plan.price)}</dd></div><div><dt>Скидка</dt><dd id="discount">${money(0)}</dd></div><div class="total"><dt>Итого</dt><dd id="total">${money(plan.price)}</dd></div></dl><p class="muted">Если у вас уже есть активная подписка, оплаченный срок добавится к ней.</p><a data-link href="/products/${encodeURIComponent(product.slug)}">Изменить тариф</a></section><section class="panel workspace-panel checkout-payment"><div class="workspace-panel__heading"><h2>Промокод и оплата</h2></div><form id="checkout-form" class="stack">${field('promoCode', 'Промокод', { required: false, maxLength: 50, autocomplete: 'off' })}<button type="button" id="check-promo" class="secondary">Проверить промокод</button><div id="promo-status" role="status" aria-live="polite"></div><p class="checkout-payment__note">Подписка активируется после подтверждения оплаты платёжной системой.</p>${legalNotice(legal)}${!state.user.jurisdiction ? '<p class="notice">Сначала выберите конфигурацию аккаунта в <a data-link href="/privacy-data">Privacy & Data</a>.</p>' : ''}<div class="legal-checkboxes"><label class="legal-checkbox"><input type="checkbox" name="offerAccepted" required><span>Я принимаю ${documentLink('offer', 'Публичную оферту', legal)}</span></label><label class="legal-checkbox"><input type="checkbox" name="refundAcknowledged" required><span>Я ознакомился с ${documentLink('refund-policy', 'Политикой возврата', legal)}</span></label></div>${formStatus()}<button type="submit">Создать заказ</button></form></section></div></div>`,
     bind(root) {
       const form = root.querySelector('#checkout-form');
       const promoMessage = root.querySelector('#promo-status');
@@ -73,7 +75,7 @@ export async function checkoutView(state) {
         const fingerprint = JSON.stringify(payload);
         if (!attempts.has(fingerprint)) attempts.set(fingerprint, checkoutKey(state.user.id, payload));
         const attempt = attempts.get(fingerprint);
-        const order = await api.createOrder({ ...payload, idempotencyKey: attempt.value });
+        const order = await api.createOrder({ ...payload, idempotencyKey: attempt.value, offerAccepted: form.elements.offerAccepted.checked, refundAcknowledged: form.elements.refundAcknowledged.checked, offerDocumentId: legal.documents.find(item => item.kind === 'offer').id, refundDocumentId: legal.documents.find(item => item.kind === 'refund-policy').id });
         attempt.clear();
         navigate(`/orders/${encodeURIComponent(order.id)}`, { replace: true });
       });

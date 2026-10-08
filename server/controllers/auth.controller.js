@@ -1,5 +1,6 @@
 import { env } from '../config/env.js';
 import * as authService from '../services/auth.service.js';
+import { PRIVACY_COOKIE, privacyCookieOptions } from '../services/legal.js';
 
 export const cookieOptions = {
   httpOnly: true, secure: env.COOKIE_SECURE, sameSite: 'lax', path: '/',
@@ -20,6 +21,7 @@ export async function login(req, res) {
 export async function logout(req, res) {
   await authService.logout(req.sessionId);
   res.clearCookie(env.COOKIE_NAME, cookieOptions);
+  res.clearCookie(PRIVACY_COOKIE, privacyCookieOptions);
   res.json({ success: true, data: { message: 'Вы вышли из аккаунта.' } });
 }
 

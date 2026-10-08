@@ -49,6 +49,7 @@ export function listUsers(query) {
 export function updateUser(adminId, id, data) {
   return mutate(adminId, async (tx) => {
     const user = notFound(await tx.user.findUnique({ where: { id }, select: publicUserSelect }), 'Пользователь');
+    if (user.deletedAt) throw new AppError(409, 'Закрытый по privacy-запросу аккаунт нельзя реактивировать через обычное управление пользователями.');
     if (adminId === id && (data.isBlocked === true || data.role === 'user')) {
       throw new AppError(409, 'Нельзя заблокировать себя или снять собственную роль администратора');
     }
